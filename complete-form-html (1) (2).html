@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Heavy Equipment Quote Request</title>
+    <title>Heavy Equipment Quote Request — Template</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -29,6 +29,7 @@
           const [isSending, setIsSending] = useState(false);
           const [sendError, setSendError] = useState('');
           const [showSparePartsHelper, setShowSparePartsHelper] = useState(false);
+          const [fallbackParams, setFallbackParams] = useState(null);
 
           const EMAILJS_SERVICE_ID = 'service_utyqebm';
           const EMAILJS_TEMPLATE_ID = 'template_1oghn4p';
@@ -108,10 +109,53 @@
             });
           };
 
+          const sendViaMailClient = (params) => {
+            const p = params || fallbackParams || {
+              from_name: formData.fullName,
+              company_name: formData.companyName,
+              phone: formData.phone,
+              email: formData.email,
+              address: formData.address,
+              equipment_type: formData.equipmentType,
+              equipment_details: formData.equipmentDetails,
+              spare_parts: formData.spareParts,
+              quantity: formData.quantity,
+              unit: formData.unit,
+              delivery_date: formData.deliveryDate,
+              urgency: formData.urgency || 'Not specified',
+              project_type: formData.projectType || 'Not specified',
+              budget: formData.budget || 'Not specified',
+              comments: formData.comments || 'None',
+              submission_date: new Date().toLocaleString()
+            };
+
+            const body = [
+              `Full Name: ${p.from_name}`,
+              `Company: ${p.company_name}`,
+              `Phone: ${p.phone}`,
+              `Email: ${p.email}`,
+              `Address: ${p.address}`,
+              `Equipment Type: ${p.equipment_type}`,
+              `Equipment Details: ${p.equipment_details}`,
+              `Spare Parts: ${p.spare_parts}`,
+              `Quantity: ${p.quantity} ${p.unit || ''}`,
+              `Delivery Date: ${p.delivery_date}`,
+              `Urgency: ${p.urgency}`,
+              `Project Type: ${p.project_type}`,
+              `Budget: ${p.budget}`,
+              `Comments: ${p.comments}`,
+              `Submitted: ${p.submission_date}`
+            ].join('\n');
+
+            const mailto = `mailto:miss.aya.taher@gmail.com?subject=${encodeURIComponent('Equipment Quote Request from ' + (p.from_name || 'Unknown'))}&body=${encodeURIComponent(body)}`;
+            window.location.href = mailto;
+          };
+
           const handleSubmit = async () => {
             if (!validateForm()) return;
             setIsSending(true);
             setSendError('');
+            setFallbackParams(null);
 
             try {
               emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -145,7 +189,27 @@
                 });
               }, 5000);
             } catch (error) {
-              setSendError('Failed to send. Please contact miss.aya.taher@gmail.com');
+              // Save the data so the user can send via their email client
+              setFallbackParams({
+                from_name: formData.fullName,
+                company_name: formData.companyName,
+                phone: formData.phone,
+                email: formData.email,
+                address: formData.address,
+                equipment_type: formData.equipmentType,
+                equipment_details: formData.equipmentDetails,
+                spare_parts: formData.spareParts,
+                quantity: formData.quantity,
+                unit: formData.unit,
+                delivery_date: formData.deliveryDate,
+                urgency: formData.urgency || 'Not specified',
+                project_type: formData.projectType || 'Not specified',
+                budget: formData.budget || 'Not specified',
+                comments: formData.comments || 'None',
+                submission_date: new Date().toLocaleString()
+              });
+
+              setSendError('Automated send failed. You can send this request directly to miss.aya.taher@gmail.com using your email client. Click the button below to open your mail app with the request pre-filled.');
             } finally {
               setIsSending(false);
             }
@@ -321,7 +385,15 @@
                       {isSending ? 'Sending...' : 'Submit Quote Request'}
                     </button>
 
-                    {sendError && <p className="text-red-600 text-sm text-center">{sendError}</p>}
+                    {sendError && (
+                      <div className="mt-4 text-center">
+                        <p className="text-red-600 text-sm">{sendError}</p>
+                        <div className="mt-2 flex items-center justify-center gap-3">
+                          <button onClick={() => sendViaMailClient()} className="px-4 py-2 bg-blue-600 text-white rounded">Send using my email client</button>
+                          <button onClick={() => { navigator.clipboard && fallbackParams && navigator.clipboard.writeText(JSON.stringify(fallbackParams)); }} className="px-3 py-2 border rounded">Copy payload</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -329,7 +401,73 @@
           );
         }
 
-        ReactDOM.render(<EquipmentQuoteForm />, document.getElementById('root'));
+        function App() {
+          const [showForm, setShowForm] = useState(false);
+
+          // Landing template page content shown before the user opens the form
+          if (!showForm) {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50 flex items-center justify-center p-6">
+                <div className="max-w-4xl w-full bg-white rounded-xl shadow-lg overflow-hidden">
+                  <div className="md:flex">
+                    <div className="md:w-1/2 p-8 bg-gradient-to-b from-blue-600 to-indigo-600 text-white">
+                      <h1 className="text-3xl font-bold mb-4">Heavy Equipment Quote Request</h1>
+                      <p className="mb-6 text-blue-100">A ready-to-use template for requesting equipment, spare parts and delivery quotes. Use it as-is or customize for your workflow.</p>
+                      <ul className="text-sm space-y-2 mb-6">
+                        <li>• Contact capture (name, company, phone, email)</li>
+                        <li>• Equipment & parts selection with helper</li>
+                        <li>• Delivery, urgency and quantity fields</li>
+                        <li>• Email submission via EmailJS (configurable)</li>
+                      </ul>
+                      <div className="flex gap-3">
+                        <button onClick={() => setShowForm(true)}
+                          className="px-4 py-2 bg-white text-blue-700 rounded font-semibold shadow-sm hover:shadow">
+                          Use this template
+                        </button>
+                        <a href="#preview" onClick={(e) => { e.preventDefault(); document.getElementById('preview-card').scrollIntoView({behavior:'smooth'}); }}
+                          className="px-4 py-2 border border-white text-white rounded hover:bg-white/10">
+                          Preview
+                        </a>
+                      </div>
+                      <p className="text-xs text-white/80 mt-4">Tip: Click \"Use this template\" to open the form below and start collecting requests.</p>
+                    </div>
+
+                    <div className="md:w-1/2 p-6">
+                      <div id="preview-card" className="border border-gray-200 rounded p-4 shadow-sm bg-white">
+                        <h3 className="text-lg font-medium text-gray-800 mb-2">Template Preview</h3>
+                        <p className="text-sm text-gray-600 mb-3">This is a live preview of the template layout. Click \"Use this template\" to open the full form.</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 border rounded">
+                            <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                          </div>
+                          <div className="p-3 border rounded">
+                            <div className="h-3 bg-gray-200 rounded w-2/3 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                          </div>
+                          <div className="col-span-2 p-3 border rounded">
+                            <div className="h-12 bg-gray-100 rounded"></div>
+                          </div>
+                        </div>
+                        <div className="mt-4 text-xs text-gray-500">
+                          File: complete-form-html (1) (2).html — you can replace this file with the template code or add a separate index.html that lands here.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 text-center text-xs text-gray-500 border-t">
+                    Preview only — no data is sent unless you click \"Use this template\" and submit the form.
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Show the full form when user chooses to \"Use this template\"
+          return <EquipmentQuoteForm />;
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
