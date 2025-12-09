@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heavy Equipment Quote Request</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        function EquipmentQuoteForm() {
+          const [formData, setFormData] = useState({
+            fullName: '', companyName: '', phone: '', email: '', address: '',
+            equipmentType: '', equipmentDetails: '', spareParts: '', sparePartsList: [],
+            quantity: '', unit: '', deliveryDate: '', urgency: '', projectType: '', budget: '', comments: ''
+          });
+
+          const [errors, setErrors] = useState({});
+          const [submitted, setSubmitted] = useState(false);
+          const [isOnline, setIsOnline] = useState(navigator.onLine);
+          const [isSending, setIsSending] = useState(false);
+          const [sendError, setSendError] = useState('');
+          const [showSparePartsHelper, setShowSparePartsHelper] = useState(false);
+
+          const EMAILJS_SERVICE_ID = 'service_utyqebm';
+          const EMAILJS_TEMPLATE_ID = 'template_1oghn4p';
+          const EMAILJS_PUBLIC_KEY = 'gg4-9_KvYvVnF-Qnt';
+
+          useEffect(() => {
+            const handleOnline = () => setIsOnline(true);
+            const handleOffline = () => setIsOnline(false);
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+            return () => {
+              window.removeEventListener('online', handleOnline);
+              window.removeEventListener('offline', handleOffline);
+            };
+          }, []);
+
+          const equipmentOptions = [
+            'Select Equipment Type', 'Excavators', 'Bulldozers', 'Cranes', 'Loaders', 
+            'Backhoes', 'Graders', 'Compactors', 'Dump Trucks', 'Forklifts', 
+            'Skid Steer Loaders', 'Trenchers', 'Pavers', 'Drilling Rigs', 
+            'Pneumatic Drills', 'Hydraulic Drills', 'Core Drilling Equipment', 'Other'
+          ];
+
+          const unitOptions = [
+            'Select Unit', 'Pieces (pcs)', 'Kilograms (kg)', 'Tons', 'Meters (m)', 
+            'Square Meters (m²)', 'Cubic Meters (m³)', 'Liters (L)', 'Sets', 'Boxes', 'Pallets'
+          ];
+
+          const urgencyOptions = ['Select Urgency', 'Standard (2-4 weeks)', 'Urgent (1-2 weeks)', 
+            'Emergency (Less than 1 week)', 'Flexible'];
+
+          const projectTypeOptions = ['Select Project Type', 'Construction', 'Mining', 'Road Building', 
+            'Demolition', 'Landscaping', 'Agriculture', 'Industrial', 'Other'];
+
+          const commonSpareParts = {
+            'Crane Parts & Rigging': ['Wire Rope Cables - Galvanized', 'Crane Hooks - Single & Double', 
+              'Shackles - Bow & D-Type', 'Pulleys & Sheaves', 'Crane Boom Sections', 'Outrigger Pads'],
+            'Drilling Equipment': ['Drill Bits - Carbide Tipped', 'Steel Wire Ropes', 'Steel Drill Rods', 
+              'Core Barrels', 'Drill String Stabilizers'],
+            'Hydraulic Components': ['Hydraulic Hoses', 'Hydraulic Pumps', 'Hydraulic Cylinders', 
+              'Hydraulic Filters', 'Hydraulic Seals'],
+            'Engine & Power': ['Engine Oil Filters', 'Air Filters', 'Fuel Filters', 'Alternators', 
+              'Batteries', 'Radiators']
+          };
+
+          const validateForm = () => {
+            const newErrors = {};
+            if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
+            if (!formData.companyName.trim()) newErrors.companyName = 'Company name is required';
+            if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
+            if (!formData.email.trim()) newErrors.email = 'Email is required';
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email';
+            if (!formData.address.trim()) newErrors.address = 'Address is required';
+            if (!formData.equipmentType || formData.equipmentType === 'Select Equipment Type') 
+              newErrors.equipmentType = 'Please select equipment type';
+            if (!formData.equipmentDetails.trim()) newErrors.equipmentDetails = 'Equipment details required';
+            if (!formData.spareParts.trim()) newErrors.spareParts = 'Spare parts description required';
+            if (!formData.quantity) newErrors.quantity = 'Quantity is required';
+            if (!formData.unit || formData.unit === 'Select Unit') newErrors.unit = 'Please select unit';
+            if (!formData.deliveryDate) newErrors.deliveryDate = 'Delivery date is required';
+            setErrors(newErrors);
+            return Object.keys(newErrors).length === 0;
+          };
+
+          const handleChange = (e) => {
+            const { name, value } = e.target;
+            setFormData(prev => ({ ...prev, [name]: value }));
+            if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+          };
+
+          const toggleSparePart = (part) => {
+            setFormData(prev => {
+              const list = prev.sparePartsList.includes(part)
+                ? prev.sparePartsList.filter(p => p !== part)
+                : [...prev.sparePartsList, part];
+              return { ...prev, sparePartsList: list, spareParts: list.join(', ') };
+            });
+          };
+
+          const handleSubmit = async () => {
+            if (!validateForm()) return;
+            setIsSending(true);
+            setSendError('');
+
+            try {
+              emailjs.init(EMAILJS_PUBLIC_KEY);
+              const templateParams = {
+                from_name: formData.fullName,
+                company_name: formData.companyName,
+                phone: formData.phone,
+                email: formData.email,
+                address: formData.address,
+                equipment_type: formData.equipmentType,
+                equipment_details: formData.equipmentDetails,
+                spare_parts: formData.spareParts,
+                quantity: formData.quantity,
+                unit: formData.unit,
+                delivery_date: formData.deliveryDate,
+                urgency: formData.urgency || 'Not specified',
+                project_type: formData.projectType || 'Not specified',
+                budget: formData.budget || 'Not specified',
+                comments: formData.comments || 'None',
+                submission_date: new Date().toLocaleString()
+              };
+
+              await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams);
+              setSubmitted(true);
+              setTimeout(() => {
+                setSubmitted(false);
+                setFormData({
+                  fullName: '', companyName: '', phone: '', email: '', address: '',
+                  equipmentType: '', equipmentDetails: '', spareParts: '', sparePartsList: [],
+                  quantity: '', unit: '', deliveryDate: '', urgency: '', projectType: '', budget: '', comments: ''
+                });
+              }, 5000);
+            } catch (error) {
+              setSendError('Failed to send. Please contact miss.aya.taher@gmail.com');
+            } finally {
+              setIsSending(false);
+            }
+          };
+
+          if (submitted) {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+                  <div className="w-16 h-16 bg-green-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Quote Request Submitted!</h2>
+                  <p className="text-gray-600 mb-4">Our team will contact you within 24-48 hours.</p>
+                  <p className="text-sm text-gray-500">Confirmation sent to {formData.email}</p>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+              <div className="max-w-3xl mx-auto">
+                <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+                    <h1 className="text-3xl font-bold mb-2">Heavy Equipment Quote Request</h1>
+                    <p className="text-blue-100">Fill out the form below to receive a customized quote</p>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-blue-200">Contact Information</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                          <input type="text" name="fullName" value={formData.fullName} onChange={handleChange}
+                            className={`w-full px-3 py-2 border rounded-md ${errors.fullName ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="John Doe" />
+                          {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Company Name *</label>
+                          <input type="text" name="companyName" value={formData.companyName} onChange={handleChange}
+                            className={`w-full px-3 py-2 border rounded-md ${errors.companyName ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="Construction Co." />
+                          {errors.companyName && <p className="text-red-500 text-xs mt-1">{errors.companyName}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                          <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
+                            className={`w-full px-3 py-2 border rounded-md ${errors.phone ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="+1 (555) 123-4567" />
+                          {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                          <input type="email" name="email" value={formData.email} onChange={handleChange}
+                            className={`w-full px-3 py-2 border rounded-md ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="john@company.com" />
+                          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                        <textarea name="address" value={formData.address} onChange={handleChange} rows="3"
+                          className={`w-full px-3 py-2 border rounded-md ${errors.address ? 'border-red-500' : 'border-gray-300'}`}
+                          placeholder="Street, City, State, ZIP" />
+                        {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-blue-200">Order Information</h2>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Equipment Type *</label>
+                        <select name="equipmentType" value={formData.equipmentType} onChange={handleChange}
+                          className={`w-full px-3 py-2 border rounded-md ${errors.equipmentType ? 'border-red-500' : 'border-gray-300'}`}>
+                          {equipmentOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+                        </select>
+                        {errors.equipmentType && <p className="text-red-500 text-xs mt-1">{errors.equipmentType}</p>}
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Equipment Details *</label>
+                        <textarea name="equipmentDetails" value={formData.equipmentDetails} onChange={handleChange} rows="3"
+                          className={`w-full px-3 py-2 border rounded-md ${errors.equipmentDetails ? 'border-red-500' : 'border-gray-300'}`}
+                          placeholder="Model, year, capacity..." />
+                        {errors.equipmentDetails && <p className="text-red-500 text-xs mt-1">{errors.equipmentDetails}</p>}
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">Spare Parts *</label>
+                          <button onClick={() => setShowSparePartsHelper(!showSparePartsHelper)}
+                            className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                            {showSparePartsHelper ? '▼ Hide' : '▶ Browse Parts'}
+                          </button>
+                        </div>
+
+                        {showSparePartsHelper && (
+                          <div className="mb-3 p-4 bg-blue-50 border rounded-md max-h-96 overflow-y-auto">
+                            {Object.entries(commonSpareParts).map(([cat, parts]) => (
+                              <div key={cat} className="mb-3">
+                                <h4 className="font-semibold text-sm mb-2">{cat}</h4>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {parts.map(part => (
+                                    <button key={part} onClick={() => toggleSparePart(part)}
+                                      className={`text-left px-2 py-1 text-xs rounded ${
+                                        formData.sparePartsList.includes(part) ? 'bg-blue-600 text-white' : 'bg-white border'
+                                      }`}>
+                                      {formData.sparePartsList.includes(part) ? '✓ ' : ''}{part}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <textarea name="spareParts" value={formData.spareParts} onChange={handleChange} rows="4"
+                          className={`w-full px-3 py-2 border rounded-md ${errors.spareParts ? 'border-red-500' : 'border-gray-300'}`}
+                          placeholder="Part details..." />
+                        {errors.spareParts && <p className="text-red-500 text-xs mt-1">{errors.spareParts}</p>}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                          <input type="number" name="quantity" value={formData.quantity} onChange={handleChange}
+                            className={`w-full px-3 py-2 border rounded-md ${errors.quantity ? 'border-red-500' : 'border-gray-300'}`} />
+                          {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                          <select name="unit" value={formData.unit} onChange={handleChange}
+                            className={`w-full px-3 py-2 border rounded-md ${errors.unit ? 'border-red-500' : 'border-gray-300'}`}>
+                            {unitOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+                          </select>
+                          {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit}</p>}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Date *</label>
+                          <input type="date" name="deliveryDate" value={formData.deliveryDate} onChange={handleChange}
+                            className={`w-full px-3 py-2 border rounded-md ${errors.deliveryDate ? 'border-red-500' : 'border-gray-300'}`} />
+                          {errors.deliveryDate && <p className="text-red-500 text-xs mt-1">{errors.deliveryDate}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Urgency</label>
+                          <select name="urgency" value={formData.urgency} onChange={handleChange}
+                            className="w-full px-3 py-2 border rounded-md border-gray-300">
+                            {urgencyOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-blue-200">Additional Info</h2>
+                      <textarea name="comments" value={formData.comments} onChange={handleChange} rows="3"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        placeholder="Special requests..." />
+                    </div>
+
+                    <button onClick={handleSubmit} disabled={isSending}
+                      className={`w-full py-3 rounded-md font-semibold text-white ${
+                        isSending ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+                      }`}>
+                      {isSending ? 'Sending...' : 'Submit Quote Request'}
+                    </button>
+
+                    {sendError && <p className="text-red-600 text-sm text-center">{sendError}</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        ReactDOM.render(<EquipmentQuoteForm />, document.getElementById('root'));
+    </script>
+</body>
+</html>
